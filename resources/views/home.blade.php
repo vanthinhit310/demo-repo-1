@@ -68,7 +68,7 @@
         function uploadFile(file, progressBarId, messageId) {
             const params = {
                 Bucket: 'dev',
-                Key: file.name,
+                Key: `csv-imports/${file.name}`,
                 Body: file
             };
 
