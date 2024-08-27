@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\LoadCsvRecordBatch;
 use App\Models\ImportHistory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 
 class ImportHistoryController extends Controller
 {
@@ -23,6 +26,13 @@ class ImportHistoryController extends Controller
             'status' => 1,
         ]);
         $item->refresh();
+        $batch = Bus::batch([
+            new LoadCsvRecordBatch($item),
+        ])->then(function () {
+            Log::info('LoadCsvRecordBatch success!');
+        })->catch(function () {
+            Log::error('LoadCsvRecordBatch failed!');
+        })->dispatch();
 
         return response()->json([
             'message' => 'Import history created successfully',
