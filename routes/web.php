@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\ImportHistoryController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -19,6 +21,5 @@ Route::get('/', function () {
 
 Auth::routes();
 
-Auth::routes();
-
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+Route::post('process-import', [ImportHistoryController::class, 'index'])->name('process-import');

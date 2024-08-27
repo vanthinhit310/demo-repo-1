@@ -43,7 +43,9 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <x-adminlte-button type="submit" label="Submit" theme="success" icon="fas fa-check" />
+                    <x-adminlte-button type="submit" label="Upload data" theme="success" icon="fas fa-upload" />
+                    <x-adminlte-button type="button" class="btn-process-import" label="Process import data"
+                        theme="primary" />
                 </div>
             </form>
         </div>
@@ -105,6 +107,50 @@
 
             uploadFile(file1, 'progress-bar-1', 'message-1');
             uploadFile(file2, 'progress-bar-2', 'message-2');
+        });
+
+        function showLoadingSpinner() {
+            const button = document.querySelector('.btn-process-import');
+            button.setAttribute('disabled', 'disabled');
+            button.textContent = 'Loading...';
+        }
+
+        function hideLoadingSpinner() {
+            const button = document.querySelector('.btn-process-import');
+            button.removeAttribute('disabled');
+            button.textContent = 'Process import data';
+        }
+
+        function processImportData() {
+            showLoadingSpinner();
+
+            // Make the AJAX request
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', "{{ route('process-import') }}", true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    hideLoadingSpinner();
+
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        alert(response.message);
+                    } else {
+                        alert(`Error: ${xhr.status}`);
+                    }
+                }
+            };
+
+            xhr.send(JSON.stringify({
+                type: 'register_new_product',
+                supplier_code: 'daido'
+            }));
+        }
+
+        document.querySelector('.btn-process-import').addEventListener('click', function() {
+            processImportData();
         });
     </script>
 @stop
