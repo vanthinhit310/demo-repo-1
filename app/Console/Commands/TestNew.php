@@ -6,14 +6,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 
-class Test extends Command
+class TestNew extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'make:demo';
+    protected $signature = 'make:demo-new';
 
     /**
      * The console command description.
@@ -89,78 +89,93 @@ class Test extends Command
 
         dd($notFoundCategories);
     }
+    /**
+     * Generate mapping between Trusco images and products
+     * Process large number of images efficiently using batch processing
+     *
+     * @return void
+     */
     public function generateTruscoImgMapping()
     {
         $output = null;
         try {
-            $images = Storage::allFiles('trusco_images');
+            // Get all images and prepare batch processing
+            $images = Storage::allFiles('trusco_images_new');
             $total = count($images);
             $notFounds = [];
+            $batchSize = 1000; // Process 1000 images per batch
+            $processed = 0;
 
-            // Mở file với mode 'a' (append) thay vì 'w' (write) để không ghi đè dữ liệu cũ
-            $output = fopen(storage_path('trusco_img_mapping.csv'), 'a');
+            // Open output file
+            $output = fopen(storage_path('trusco_img_mapping_new.csv'), 'a');
 
-            // Kiểm tra xem file có trống không để thêm header
+            // Add BOM and headers if file is empty
             if (filesize(storage_path('trusco_img_mapping.csv')) === 0) {
-                fwrite($output, "\xEF\xBB\xBF"); // BOM for UTF-8
+                fwrite($output, "\xEF\xBB\xBF");
                 fputcsv($output, ['品目コード', '写真名']);
             }
 
-            foreach ($images as $index => $image) {
-                $this->info('Processing ' . $image . ' (' . ($index + 1) . '/' . $total . ')');
-                try {
+            // Process images in batches
+            foreach (array_chunk($images, $batchSize) as $batchNumber => $imageBatch) {
+                $this->info("Processing batch " . ($batchNumber + 1) . " of " . ceil($total / $batchSize));
+
+                // Prepare all filenames for this batch
+                $fileNameMap = [];
+                foreach ($imageBatch as $image) {
                     $originalFileName = basename($image);
                     $fileName = strtoupper($originalFileName);
                     $fileName = str_replace(['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'], '', $fileName);
                     $formattedFileName = str_replace([' ', '_'], '', $fileName);
 
-                    $products = DB::connection('catalog')
-                        ->table('oc_product')
-                        ->select('sku')
-                        ->whereRaw('REPLACE(sku, " ", "") = ?', [$formattedFileName])
-                        ->take(2)
-                        ->get();
-
-                    $this->info('Found ' . $products->count() . ' products for ' . $fileName . ' with formatted name ' . $formattedFileName);
-
-                    if ($products->count() > 0) {
-                        if ($products->count() > 1) {
-                            info('Multiple products found for ' . $fileName, [
-                                'fileName' => $fileName,
-                                'products' => $products->pluck('sku')->toArray(),
-                                'formattedFileName' => $formattedFileName,
-                            ]);
-                            $this->info('Multiple products found for ' . $fileName);
-                        } else {
-                            $sku = $products->first() ? $products->first()->sku : null;
-
-                            if (!empty($sku)) {
-                                $this->info('Product found for ' . $fileName . ' with code ' . $sku);
-
-                                // Ghi ngay vào file và flush buffer để đảm bảo dữ liệu được lưu
-                                fputcsv($output, [$sku, $originalFileName]);
-                                fflush($output);
-
-                                Storage::delete($image);
-                                $this->info('Deleted image: ' . $image);
-                            }
-                        }
-                    } else {
-                        $this->warn('No product found for ' . $fileName);
-                        $notFounds[] = $fileName;
-                    }
-
-                    $this->info('Done ' . $image);
-                    $this->info('--------------------------------');
-                } catch (\Exception $e) {
-                    $this->error('Error processing image ' . $image . ': ' . $e->getMessage());
-                    // Tiếp tục với ảnh tiếp theo
-                    continue;
+                    $fileNameMap[$formattedFileName] = [
+                        'original' => $originalFileName,
+                        'path' => $image
+                    ];
                 }
+
+                // Bulk query for all products in this batch
+                $products = DB::connection('catalog')
+                    ->table('oc_product')
+                    ->select('sku')
+                    ->whereIn(DB::raw('REPLACE(sku, " ", "")'), array_keys($fileNameMap))
+                    ->get()
+                    ->groupBy(function ($item) {
+                        return str_replace([' ', '_'], '', $item->sku);
+                    });
+
+                // Process results
+                foreach ($fileNameMap as $formattedFileName => $fileInfo) {
+                    $matchingProducts = $products->get($formattedFileName, collect([]));
+
+                    if ($matchingProducts && $matchingProducts->count() === 1) {
+                        $sku = $matchingProducts->first()->sku;
+                        fputcsv($output, [$sku, $fileInfo['original']]);
+                        Storage::delete($fileInfo['path']);
+                        $processed++;
+
+                        // Thêm log hiển thị tiến độ
+                        if ($processed % 100 == 0) { // Log mỗi 100 ảnh đã xử lý
+                            $percentage = round(($processed / $total) * 100, 2);
+                            $this->info("Processed: {$processed}/{$total} images ({$percentage}%)");
+                        }
+                    } elseif ($matchingProducts && $matchingProducts->count() > 1) {
+                        info('Multiple products found', [
+                            'fileName' => $fileInfo['original'],
+                            'products' => $matchingProducts->pluck('sku')->toArray()
+                        ]);
+                    } else {
+                        $notFounds[] = $fileInfo['original'];
+                    }
+                }
+
+                // Flush after each batch
+                fflush($output);
+
+                $this->info("Completed batch " . ($batchNumber + 1));
             }
 
             if (!empty($notFounds)) {
-                info('Not founds images', ['notFound' => $notFounds]);
+                info('Not found images', ['notFound' => $notFounds]);
             }
         } catch (\Exception $e) {
             $this->error('An error occurred: ' . $e->getMessage());

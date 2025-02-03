@@ -16,3 +16,5 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+storage/category_trusco_01.csv
+composer.lock
