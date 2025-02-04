@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Test extends Command
 {
@@ -43,25 +43,26 @@ class Test extends Command
         while (($line = fgetcsv($handle)) !== false) {
             if ($lineNumber == 0) {
                 $lineNumber++;
+
                 continue;
             }
 
             $categoryId = '';
 
-            if (isset($line[0]) && !empty($line[0])) {
+            if (isset($line[0]) && ! empty($line[0])) {
                 $categoryId .= $line[0];
             }
 
-            if (isset($line[1]) && !empty($line[1])) {
-                $categoryId .= "_" . $line[1];
+            if (isset($line[1]) && ! empty($line[1])) {
+                $categoryId .= '_'.$line[1];
             }
 
-            if (isset($line[2]) && !empty($line[2])) {
-                $categoryId .= "_" . $line[2];
+            if (isset($line[2]) && ! empty($line[2])) {
+                $categoryId .= '_'.$line[2];
             }
 
-            if ($categoryId === "___") {
-                $categoryId = "";
+            if ($categoryId === '___') {
+                $categoryId = '';
             }
 
             $categoryId = trim($categoryId);
@@ -72,7 +73,7 @@ class Test extends Command
         }
 
         foreach ($categories as $category) {
-            $this->info('Processing ' . $category);
+            $this->info('Processing '.$category);
 
             $categoryExists = DB::connection('catalog')
                 ->table('category')
@@ -80,15 +81,16 @@ class Test extends Command
                 ->exists();
 
             if (! $categoryExists) {
-                $this->error('Category ' . $category . ' does not exist');
+                $this->error('Category '.$category.' does not exist');
                 $notFoundCategories[] = $category;
             } else {
-                $this->info('Category ' . $category . ' exists');
+                $this->info('Category '.$category.' exists');
             }
         }
 
         dd($notFoundCategories);
     }
+
     public function generateTruscoImgMapping()
     {
         $output = null;
@@ -107,7 +109,7 @@ class Test extends Command
             }
 
             foreach ($images as $index => $image) {
-                $this->info('Processing ' . $image . ' (' . ($index + 1) . '/' . $total . ')');
+                $this->info('Processing '.$image.' ('.($index + 1).'/'.$total.')');
                 try {
                     $originalFileName = basename($image);
                     $fileName = strtoupper($originalFileName);
@@ -121,49 +123,50 @@ class Test extends Command
                         ->take(2)
                         ->get();
 
-                    $this->info('Found ' . $products->count() . ' products for ' . $fileName . ' with formatted name ' . $formattedFileName);
+                    $this->info('Found '.$products->count().' products for '.$fileName.' with formatted name '.$formattedFileName);
 
                     if ($products->count() > 0) {
                         if ($products->count() > 1) {
-                            info('Multiple products found for ' . $fileName, [
+                            info('Multiple products found for '.$fileName, [
                                 'fileName' => $fileName,
                                 'products' => $products->pluck('sku')->toArray(),
                                 'formattedFileName' => $formattedFileName,
                             ]);
-                            $this->info('Multiple products found for ' . $fileName);
+                            $this->info('Multiple products found for '.$fileName);
                         } else {
                             $sku = $products->first() ? $products->first()->sku : null;
 
-                            if (!empty($sku)) {
-                                $this->info('Product found for ' . $fileName . ' with code ' . $sku);
+                            if (! empty($sku)) {
+                                $this->info('Product found for '.$fileName.' with code '.$sku);
 
                                 // Ghi ngay vào file và flush buffer để đảm bảo dữ liệu được lưu
                                 fputcsv($output, [$sku, $originalFileName]);
                                 fflush($output);
 
                                 Storage::delete($image);
-                                $this->info('Deleted image: ' . $image);
+                                $this->info('Deleted image: '.$image);
                             }
                         }
                     } else {
-                        $this->warn('No product found for ' . $fileName);
+                        $this->warn('No product found for '.$fileName);
                         $notFounds[] = $fileName;
                     }
 
-                    $this->info('Done ' . $image);
+                    $this->info('Done '.$image);
                     $this->info('--------------------------------');
                 } catch (\Exception $e) {
-                    $this->error('Error processing image ' . $image . ': ' . $e->getMessage());
+                    $this->error('Error processing image '.$image.': '.$e->getMessage());
+
                     // Tiếp tục với ảnh tiếp theo
                     continue;
                 }
             }
 
-            if (!empty($notFounds)) {
+            if (! empty($notFounds)) {
                 info('Not founds images', ['notFound' => $notFounds]);
             }
         } catch (\Exception $e) {
-            $this->error('An error occurred: ' . $e->getMessage());
+            $this->error('An error occurred: '.$e->getMessage());
             throw $e;
         } finally {
             if ($output) {
