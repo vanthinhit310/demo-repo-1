@@ -17,7 +17,7 @@ class CreateTruscoImageMapping extends Command
      *
      * @var int
      */
-    private const BATCH_SIZE = 1000;
+    private const BATCH_SIZE = 500;
 
     /**
      * CSV file headers for the mapping file
