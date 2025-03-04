@@ -36,7 +36,6 @@ class Test extends Command
     {
         $images = Storage::allFiles('trusco_images');
         $total = count($images);
-        $mapping = [];
         $notFounds = [];
         $output = fopen(storage_path('trusco_img_mapping.csv'), 'w');
         fwrite($output, "\xEF\xBB\xBF");
@@ -67,17 +66,13 @@ class Test extends Command
                 } else {
                     $sku = $products->first() ? $products->first()->sku : null;
                     $this->info('Product found for ' . $fileName . ' with code ' . $sku);
-                    $mapping[] = [
-                        'sku' => $products->first()->sku,
-                        'fileName' => $fileName,
-                    ];
                     fputcsv($output, [$products->first()->sku, $originalFileName]);
                     Storage::delete($image);
                     $this->info('Deleted image: ' . $image);
                 }
             } else {
-                $this->warn('No product found for ' . $fileName);
-                $notFounds[] = $fileName;
+                $this->warn('No product found for ' . $originalFileName);
+                $notFounds[] = $originalFileName;
             }
 
             $this->info('Done ' . $image);
@@ -89,6 +84,7 @@ class Test extends Command
         }
 
         fclose($output);
+        $this->processNotFoundImage();
         $this->info('Done!');
     }
 
@@ -102,7 +98,7 @@ class Test extends Command
 
         foreach ($notFounds as $image) {
             $formattedImageCode = $this->formatImageCode($image);
-
+            
             foreach ($csvData as $item) {
                 $skuCode = $this->formatSkuCode($item);
 
@@ -115,10 +111,9 @@ class Test extends Command
 
         $this->newLine();
 
-        // Write matches to output CSV
         if (count($matches) > 0) {
             $this->writeToCsv($matches);
-            $this->info('Found ' . count($matches) . ' matches. Results saved to ' . $this->outputFilePath);
+            $this->info('Found ' . count($matches) . ' matches. Results saved to trusco_img_mapping.csv');
         } else {
             $this->info('No matches found');
         }
@@ -130,7 +125,7 @@ class Test extends Command
         $data = [];
 
         if (($handle = fopen($filePath, "r")) !== false) {
-            fgetcsv($handle, 0, ",", '"');
+            fgetcsv($handle, 1000, ",", '"');
 
             while (($row = fgetcsv($handle, 0, ",", '"')) !== false) {
                 if (isset($row[1])) {
@@ -146,10 +141,9 @@ class Test extends Command
 
     protected function formatImageCode($imageCode)
     {
-        // Remove file extension, spaces and underscores
-        $formatted = preg_replace('/\.[^.]+$/', '', $imageCode); // Remove extension
-        $formatted = str_replace('_', '', $formatted); // Remove underscores
-        $formatted = str_replace(' ', '', $formatted); // Remove spaces
+        $formatted = str_replace(['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'], '', $imageCode);
+        $formatted = str_replace('_', '', $formatted);
+        $formatted = str_replace(' ', '', $formatted);
 
         return trim($formatted);
     }
@@ -162,15 +156,15 @@ class Test extends Command
      */
     protected function formatSkuCode($skuCode)
     {
-        $formatted = str_replace('_', '', $skuCode); // Remove underscores
-        $formatted = str_replace(' ', '', $formatted); // Remove spaces
+        $formatted = str_replace('_', '', $skuCode);
+        $formatted = str_replace(' ', '', $formatted);
 
         return trim($formatted);
     }
 
     protected function writeToCsv($matches)
     {
-        $output = fopen(storage_path('trusco_not_found_images_matches.csv'), 'a');
+        $output = fopen(storage_path('trusco_img_mapping.csv'), 'a');
 
         foreach ($matches as $match) {
             fputcsv($output, [$match[0], $match[1]]);

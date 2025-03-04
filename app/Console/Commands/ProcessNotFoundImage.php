@@ -115,7 +115,7 @@ class ProcessNotFoundImage extends Command
     protected function formatImageCode($imageCode)
     {
         // Remove file extension, spaces and underscores
-        $formatted = preg_replace('/\.[^.]+$/', '', $imageCode); // Remove extension
+        $formatted = str_replace(['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'], '', $imageCode); // Remove extension
         $formatted = str_replace('_', '', $formatted); // Remove underscores
         $formatted = str_replace(' ', '', $formatted); // Remove spaces
 
@@ -149,7 +149,7 @@ class ProcessNotFoundImage extends Command
         if (($handle = fopen($filePath, "r")) !== false) {
             fgetcsv($handle, 0, ",", '"');
 
-            while (($row = fgetcsv($handle, 0, ",", '"')) !== false) {
+            while (($row = fgetcsv($handle, 1000, ",", '"')) !== false) {
                 if (isset($row[1])) {
                     $data[] = $row[1];
                 }
